@@ -8,9 +8,7 @@ use reqwest::StatusCode;
 use schema::{
     assets_index::AssetsIndex,
     curseforge::{
-        CurseforgeChangelogRequest, CurseforgeChangelogResult, CurseforgeFingerprintRequest, CurseforgeFingerprintResponse, CurseforgeGetFilesRequest,
-        CurseforgeGetModFilesRequest, CurseforgeGetModFilesResult, CurseforgeSearchRequest,
-        CurseforgeSearchResult
+        CurseforgeChangelogRequest, CurseforgeChangelogResult, CurseforgeFingerprintRequest, CurseforgeFingerprintResponse, CurseforgeGetFilesRequest, CurseforgeGetModFilesRequest, CurseforgeGetModFilesResult, CurseforgeProject, CurseforgeSearchRequest, CurseforgeSearchResult
     },
     fabric_launch::FabricLaunch, fabric_loader_manifest::FabricLoaderManifest,
     forge::{ForgeMavenManifest, NeoforgeMavenManifest}, java_runtime_component::JavaRuntimeComponentManifest,
@@ -29,7 +27,7 @@ use sha1::{Digest, Sha1};
 use tokio::task::JoinHandle;
 use ustr::Ustr;
 
-use crate::metadata::items::{MetadataItem, ModrinthV3VersionUpdateMetadataItem, ModrinthVersionUpdateMetadataItem};
+use crate::{HttpClientProvider, metadata::items::{MetadataItem, ModrinthV3VersionUpdateMetadataItem, ModrinthVersionUpdateMetadataItem}};
 
 pub struct MetaState<T> {
     keep_alive: Option<KeepAliveNotifySignalHandle>,
@@ -43,6 +41,15 @@ impl <T> Default for MetaState<T> {
             keep_alive: None,
             load_state: MetaLoadState::Unloaded,
             failure_count: 0
+        }
+    }
+}
+
+impl <T> Drop for MetaState<T> {
+    fn drop(&mut self) {
+        match &self.load_state {
+            MetaLoadState::Pending(handle) => handle.abort(),
+            _ => {}
         }
     }
 }
@@ -87,6 +94,7 @@ pub struct MetadataManagerStates {
     pub(super) curseforge_get_files: HashMap<CurseforgeGetFilesRequest, MetaStateWrapper<CurseforgeGetModFilesResult>>,
     pub(super) curseforge_changelogs: HashMap<CurseforgeChangelogRequest, MetaStateWrapper<CurseforgeChangelogResult>>,
     pub(super) curseforge_fingerprints: HashMap<CurseforgeFingerprintRequest, MetaStateWrapper<CurseforgeFingerprintResponse>>,
+    pub(super) curseforge_projects: HashMap<u32, MetaStateWrapper<CurseforgeProject>>,
 }
 
 #[derive(Clone, Copy, enum_map::Enum)]
@@ -122,7 +130,7 @@ pub struct MetadataManager {
 
     expiring: enum_map::EnumMap<ExpirationDuration, Mutex<VecDeque<(Instant, KeepAliveNotifySignal)>>>,
 
-    http_client: reqwest::Client,
+    http_client: HttpClientProvider,
 }
 
 #[derive(thiserror::Error, Clone, Debug)]
@@ -233,7 +241,7 @@ pub enum MetaLoadState<T> {
 }
 
 impl MetadataManager {
-    pub fn new(http_client: reqwest::Client, directory: Arc<Path>) -> Self {
+    pub fn new(http_client: HttpClientProvider, directory: Arc<Path>) -> Self {
         Self {
             states: Mutex::new(MetadataManagerStates::default()),
 
@@ -247,6 +255,13 @@ impl MetadataManager {
             expiring: Default::default(),
 
             http_client,
+        }
+    }
+
+    pub fn clear(&self) {
+        *self.states.lock() = MetadataManagerStates::default();
+        for expiring in self.expiring.values() {
+            expiring.lock().clear();
         }
     }
 
@@ -273,7 +288,7 @@ impl MetadataManager {
         handle
     }
 
-    pub fn preload<I: MetadataItem>(&self, item: &I) {
+    pub fn preload<I: MetadataItem>(&self, item: I) {
         let wrapper = item.state(&mut *self.states.lock());
         let mut wrapper = wrapper.lock();
 
@@ -283,17 +298,17 @@ impl MetadataManager {
             }
 
             let cache_file = item.cache_file(self);
-            wrapper.load_state = Self::inner_start_loading(item, cache_file, &self.http_client);
+            wrapper.load_state = Self::inner_start_loading(&item, cache_file, &self.http_client.client());
         }
     }
 
-    pub async fn fetch<I: MetadataItem>(&self, item: &I) -> Result<Arc<<I as MetadataItem>::T>, MetaLoadError> {
+    pub async fn fetch<I: MetadataItem>(&self, item: I) -> Result<Arc<<I as MetadataItem>::T>, MetaLoadError> {
         self.fetch_with_keepalive(item, false).await.0
     }
 
-    pub async fn fetch_with_keepalive<I: MetadataItem>(&self, item: &I, mut force_reload: bool) -> (Result<Arc<<I as MetadataItem>::T>, MetaLoadError>, Option<KeepAliveNotifySignalHandle>) {
+    pub async fn fetch_with_keepalive<I: MetadataItem>(&self, item: I, mut force_reload: bool) -> (Result<Arc<<I as MetadataItem>::T>, MetaLoadError>, Option<KeepAliveNotifySignalHandle>) {
         loop {
-            if let Some(result) = self.fetch_with_keepalive_inner(item, force_reload).await {
+            if let Some(result) = self.fetch_with_keepalive_inner(&item, force_reload).await {
                 return result;
             } else {
                 force_reload = true;
@@ -322,7 +337,7 @@ impl MetadataManager {
 
                 if wrapper.should_reload(force_reload) {
                     let cache_file = item.cache_file(self);
-                    wrapper.load_state = Self::inner_start_loading(item, cache_file, &self.http_client);
+                    wrapper.load_state = Self::inner_start_loading(item, cache_file, &self.http_client.client());
                 }
                 force_reload = false;
 

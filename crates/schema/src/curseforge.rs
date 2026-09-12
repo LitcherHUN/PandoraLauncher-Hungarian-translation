@@ -82,6 +82,11 @@ pub struct CurseforgeFingerprintResponse {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct CurseforgeProjectResponse {
+    pub data: CurseforgeProject,
+}
+
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CurseforgeFingerprintData {
     pub exact_matches: Arc<[CurseforgeFingerprintMatch]>,
@@ -169,6 +174,19 @@ pub struct CurseforgeFile {
     pub hashes: Arc<[CurseforgeFileHash]>,
     pub download_url: Option<Arc<str>>,
     pub dependencies: Arc<[CurseforgeFileDependency]>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CurseforgeProjectLinks {
+    pub website_url: Arc<str>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CurseforgeProject {
+    pub name: Arc<str>,
+    pub links: CurseforgeProjectLinks,
 }
 
 #[derive(Debug, Deserialize, Clone)]
