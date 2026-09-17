@@ -1,12 +1,11 @@
 use std::{ffi::{OsStr, OsString}, io::Write, path::Path, sync::Arc};
 
 use bridge::{
-    install::{ContentDownload, ContentInstall, ContentInstallFile, ContentInstallPath, InstallTarget}, instance::{ContentFolder, ContentSummary, ContentType, ModpackFileSource}, manual_download::ManualCurseforgeDownload, modal_action::{ModalAction, ProgressTrackerFinishType}, notify_signal::KeepAliveNotifySignal, safe_path::SafePath
+    install::{ContentDownload, ContentInstall, ContentInstallFile, ContentInstallPath, InstallTarget}, instance::{ContentFolder, ContentSummary, ContentType, ModpackFileSource}, manual_download::ManualCurseforgeDownload, modal_action::{ModalAction, ProgressTrackerFinishType}, safe_path::SafePath
 };
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use reqwest::StatusCode;
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::{FxHashSet};
 use schema::{content::{ContentInstallReason, ContentSource}, curseforge::{CURSEFORGE_API_KEY, CURSEFORGE_RELATION_TYPE_REQUIRED_DEPENDENCY, CachedCurseforgeFileInfo, CurseforgeGetFilesRequest, CurseforgeGetModFilesRequest, CurseforgeModLoaderType}, loader::Loader, modrinth::{ModrinthDependencyType, ModrinthLoader, ModrinthProjectVersionsRequest}};
 use serde::Serialize;
 use sha1::{Digest, Sha1};
@@ -98,8 +97,6 @@ struct InstalledContentIds {
     summary_ids: FxHashSet<Arc<str>>,
 }
 
-static FILE_LOCKS: Lazy<Mutex<FxHashMap<Arc<Path>, KeepAliveNotifySignal>>> = Lazy::new(Default::default);
-
 impl BackendState {
     pub async fn install_content(self: &Arc<Self>, content: ContentInstall, modal_action: ModalAction) {
         let needs_installed_content_ids = content.files.iter().any(|content_file| {
@@ -113,6 +110,7 @@ impl BackendState {
             }
             false
         });
+
         let installed_content_ids: Option<Mutex<InstalledContentIds>> = if needs_installed_content_ids {
             let mut installed_content_ids = InstalledContentIds::default();
 
@@ -211,7 +209,7 @@ impl BackendState {
             let name = name.as_deref().unwrap_or("New Instance");
 
             // todo: use icon of mod/modpack/etc. for icon of instance
-            dot_minecraft_dir = self.create_instance_sanitized(&name, &minecraft_version, loader, None).await
+            dot_minecraft_dir = self.create_instance_sanitized(&name, &minecraft_version, loader, None)
                 .map(|v| v.join(".minecraft").into());
         }
 
@@ -331,7 +329,7 @@ impl BackendState {
                         None
                     };
 
-                    let mut result = self.meta.fetch(ModrinthProjectVersionsMetadataItem(&ModrinthProjectVersionsRequest {
+                    let mut result = self.meta.fetch(ModrinthProjectVersionsMetadataItem(ModrinthProjectVersionsRequest {
                         project_id: project_id.clone(),
                         game_versions: Some(Arc::new([content.minecraft_version.into()])),
                         loaders,
@@ -344,7 +342,7 @@ impl BackendState {
                     if not_found && modrinth_loader != ModrinthLoader::Unknown {
                         tracker.add_total(1);
 
-                        result = self.meta.fetch(ModrinthProjectVersionsMetadataItem(&ModrinthProjectVersionsRequest {
+                        result = self.meta.fetch(ModrinthProjectVersionsMetadataItem(ModrinthProjectVersionsRequest {
                             project_id: project_id.clone(),
                             game_versions: Some(Arc::new([content.minecraft_version.into()])),
                             loaders: None,
@@ -358,7 +356,7 @@ impl BackendState {
                     if not_found {
                         tracker.add_total(1);
 
-                        result = self.meta.fetch(ModrinthProjectVersionsMetadataItem(&ModrinthProjectVersionsRequest {
+                        result = self.meta.fetch(ModrinthProjectVersionsMetadataItem(ModrinthProjectVersionsRequest {
                             project_id: project_id.clone(),
                             game_versions: None,
                             loaders: None,
@@ -904,7 +902,7 @@ impl BackendState {
 
             Some(files)
         } else {
-            None
+            return Ok(result);
         };
 
         let mut tasks = Vec::new();
@@ -1036,19 +1034,7 @@ impl BackendState {
 
         let _permit = self.content_install_semaphore.acquire().await.unwrap();
 
-        loop {
-            let occupied = match FILE_LOCKS.lock().entry(path.clone()) {
-                std::collections::hash_map::Entry::Occupied(occupied_entry) => {
-                    occupied_entry.get().create_handle()
-                },
-                std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                    vacant_entry.insert(KeepAliveNotifySignal::new());
-                    break;
-                },
-            };
-
-            occupied.await_notification().await;
-        };
+        let _signal = crate::fs::lock_file(path.clone()).await;
 
         let file_name = name.filename.clone();
 
@@ -1070,7 +1056,6 @@ impl BackendState {
             let summary = self.mod_metadata_manager.get_path(&path);
             return Ok((path, sha1, summary));
         }
-
 
         let mut builder = self.http_client_provider.redirecting().get(&*url)
             .header("modrinth-download-meta", serde_json::to_string(&download_meta).unwrap_or_default());
@@ -1126,8 +1111,6 @@ impl BackendState {
                 unreachable!();
             }
         }
-
-        FILE_LOCKS.lock().remove(&path);
 
         let summary = self.mod_metadata_manager.get_path(&path);
         Ok((path, sha1, summary))
