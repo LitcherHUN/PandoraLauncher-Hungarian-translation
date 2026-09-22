@@ -1700,6 +1700,7 @@ it = "Errore durante l'aggiunta dell'account"
 [quickplay.title]
 en = "Quickplay"
 tr = "Hızlı Oyna"
+hu = "Gyorsjáték"
 ru = "Быстрая игра"
 
 [instance.title]
@@ -4330,6 +4331,7 @@ fr = "Langue"
 it = "Lingua"
 [settings.general.general.language_desc]
 en = "Pandora Launcher interface language"
+hu = "Pandora Launcher hezelőfelület nyelv"
 ru = "Язык интерфейса Pandora Launcher"
 [settings.general.general.language.system]
 en = "System language"
@@ -4559,47 +4561,68 @@ hu = "Minden másik ablak bezárása a fő Pandora Launcher ablak bezárásakor"
 en = "Sidebar"
 [settings.appearance.sidebar.show_sidebar_icons]
 en = "Show sidebar icons"
+hu = "Oldalsáv ikonok mutatása"
 [settings.appearance.sidebar.show_sidebar_icons_desc]
 en = "Show icons on the sidebar next to the text"
+hu = "Oldalsávi ikonok mutatása a szöveg mellett"
 [settings.appearance.sidebar.show_quickplay_page]
 en = "Show quickplay page"
+hu = "Gyorsjáték fül mutatása"
 [settings.appearance.sidebar.show_quickplay_page_desc]
 en = "Show the quickplay page in the sidebar"
+hu = "Gyorsjáték oldal mutatása az oldalsávon"
 
 [settings.java]
 en = "Java"
+hu = "Java"
 [settings.java.defaults]
 en = "Launch Defaults"
+hu = "Indítás alapokkal"
 [settings.java.defaults.enable_memory]
 en = "Default Memory"
+hu = "Alapértelmezett memória"
 [settings.java.defaults.enable_memory_desc]
 en = "Default memory limits for instances"
+hu = "Példányok alapértelmezett memóriakorlát"
 [settings.java.defaults.memory_min]
 en = "Minimum Memory"
+hu = "Minimum memória"
 [settings.java.defaults.memory_min_desc]
 en = "Default minimum memory in MiB"
+hu = "Alapértelmezett minimum memória MiB-ben"
 [settings.java.defaults.memory_max]
 en = "Maximum Memory"
+hu = "Maximum memória"
 [settings.java.defaults.memory_max_desc]
 en = "Default maximum memory in MiB"
+hu = "Alapértelmezett maximum memória MiB-ben"
 [settings.java.defaults.enable_jvm_flags]
 en = "Default JVM Flags"
+hu = "Alapértelmezett JVM Flag-ek"
 [settings.java.defaults.enable_jvm_flags_desc]
 en = "Apply default JVM flags to instances"
+hu = "Alapértelmezett JVM Flag-ek alkalmazása a példányokon"
 [settings.java.defaults.jvm_flags]
 en = "JVM Flags"
+hu = "JVM Flag-ek"
 [settings.java.defaults.jvm_flags_desc]
 en = "Default JVM flags to apply to every instance"
+hu = "Alapértelmezett JVM Flag-ek amit alkalmazzon a példányokon"
 [settings.java.defaults.enable_jvm_binary]
 en = "Default JVM Binary"
+hu = "Alapértelmezett JVM bináris"
 [settings.java.defaults.enable_jvm_binary_desc]
 en = "Default JVM binary for instances"
+hu = "Alapértelmezett JVM bináris a pédlányokhoz"
 [settings.java.defaults.jvm_binary]
 en = "JVM Binary"
+hu = "JVM bináris"
 [settings.java.defaults.jvm_binary_desc]
 en = "Path to the default Java executable"
+hu = "Elérés az alapértelmezett Java-futtatható fájlhoz"
 [settings.java.defaults.select_jvm_binary]
 en = "Select JVM Binary"
+hu = "JVM bináris kiválasztása"
 
 [settings.network]
 en = "Network"
@@ -4723,6 +4746,7 @@ ru = "Пароль прокси (при включённой аутентифи�
 hu = "Proxy jelszó (ha bevan kapcsolva a hitelesítés)"
 [settings.network.launcher_proxy.password_hidden]
 en = "(hidden)"
+hu = "(rejtett)"
 ru = "(скрыт)"
 
 [skins.title]
